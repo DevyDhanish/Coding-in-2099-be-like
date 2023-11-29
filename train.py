@@ -11,6 +11,23 @@ img_height = 180
 img_width = 180
 img_channel = 3
 batch = 32
+TRANING : bool = True
+PERFORM_VIDEO_TEST : bool = False
+
+def getTrainingConfirmation():
+    choice = input("Proceed (y/n) --> ")
+
+    if choice == "y" or choice == "Y":
+        return True
+    
+    elif choice == "n" or choice == "N":
+        return False
+    
+    else:
+        print("Invalid input")
+        return getTrainingConfirmation()
+    
+getVideoConfirmation = getTrainingConfirmation
 
 train_data_generator = ImageDataGenerator(
     rotation_range=10,
@@ -40,44 +57,51 @@ validation_data = train_data_generator.flow_from_directory(
 )
 
 model = Sequential([
-    Conv2D(32, (3,3), activation="relu", input_shape=(img_width, img_height, img_channel)),
-    MaxPooling2D((2,2)),
-    Conv2D(64, (3,3), activation="relu"),
+    Conv2D(64, (3,3), activation="relu", input_shape=(img_width, img_height, img_channel)),
     MaxPooling2D((2,2)),
     Conv2D(128, (3,3), activation="relu"),
     MaxPooling2D((2,2)),
+    Conv2D(256, (3,3), activation="relu"),
+    MaxPooling2D((2,2)),
     Flatten(),
     Dense(256, activation="relu"),
-    #Dropout(0.5),
+    Dropout(0.5),
     Dense(128, activation="relu"),
     Dropout(0.3),
     Dense(2, activation="softmax"),
 ])
 
+print("Proceed with Traning")
+TRANING = getTrainingConfirmation()
 
-model.compile(optimizer=tf.keras.optimizers.Adam(lr=0.001), loss=tf.keras.losses.BinaryCrossentropy(), metrics=["accuracy"])
-model.fit(traning_data, epochs=10, validation_data=validation_data)
+if(TRANING):
+    model.compile(optimizer=tf.keras.optimizers.Adam(lr=0.0001), loss=tf.keras.losses.BinaryCrossentropy(), metrics=["accuracy"])
+    model.fit(traning_data, epochs=5, validation_data=validation_data)
+    model.save("model.h5")
+else:
+    model = tf.keras.models.load_model("model.h5")
 
-vid = cv2.VideoCapture(0)
+print("Proceed with video test")
+PERFORM_VIDEO_TEST = getVideoConfirmation()
 
-while 1:
-    ret, img = vid.read()
+lables = ["Violent", "Peace"]
 
-    grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+if(PERFORM_VIDEO_TEST):
+    vid = cv2.VideoCapture(0)
 
-    cv2.imshow("Cam feed", grayscale)
-    grayscale = cv2.merge([grayscale, grayscale, grayscale])
-    grayscale = cv2.resize(grayscale, (img_width, img_height))
-    grayscale = np.array(grayscale).reshape(1, img_width, img_height, img_channel)
+    while 1:
+        ret, img = vid.read()
+        cv2.imshow("Cam feed", img)
+        img = cv2.resize(img, (img_width, img_width))
+        img = np.array(img).reshape(1, img_width, img_height, img_channel)
 
-    output = model.predict(grayscale)
-    print(f"Model thinks - {output}")
+        output = model.predict(img)
+        print(f"Model thinks - {lables[np.argmax(output)]}")
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-
-vid.release()
-cv2.destroyAllWindows()
+    vid.release()
+    cv2.destroyAllWindows()
 
 print("Sucessfull")
